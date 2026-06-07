@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { healthRouter } from "./routes/health.js";
 import { tasksRouter } from "./routes/tasks.js";
+import { todosRouter } from "./routes/todos.js";
 
 const defaultClientDistPath = fileURLToPath(new URL("../../client/dist", import.meta.url));
 
@@ -18,6 +19,7 @@ export function createApp(): Express {
 
   app.use("/health", healthRouter);
   app.use("/tasks", tasksRouter);
+  app.use("/todos", todosRouter);
 
   const clientDistPath = env.CLIENT_DIST_PATH || defaultClientDistPath;
 
