@@ -21,6 +21,7 @@ todomvc-030 is a full-stack TodoMVC-style app built as a TypeScript monorepo. It
 - PostgreSQL is the only durable store. Prisma owns database access and migrations.
 - The primary todo data model is `todos`: UUID id, title, completed flag, and created/updated timestamps.
 - The Express server serves API routes and, after `npm run build`, serves the built React app from `client/dist`.
+- The todo UI updates its React Query cache from mutation responses instead of relying on background refetches after every change.
 - The repository still contains older task/image API and component code, but the current product flow is the todo list wired to `/todos`.
 
 ## API Surface
@@ -29,7 +30,7 @@ todomvc-030 is a full-stack TodoMVC-style app built as a TypeScript monorepo. It
 - `GET /todos` lists todos.
 - `POST /todos` creates a todo with a non-empty title.
 - `PATCH /todos/:id` toggles a todo by accepting a `completed` boolean.
-- `DELETE /todos/:id` deletes a todo.
+- `DELETE /todos/:id` deletes a todo and returns a JSON confirmation.
 
 ## Conventions
 
