@@ -58,7 +58,8 @@ describe("todo routes", () => {
       completed: false,
     });
 
-    await request(app).delete(`/todos/${createdTodo.id}`).expect(204);
+    const deleteResponse = await request(app).delete(`/todos/${createdTodo.id}`).expect(200);
+    expect(deleteResponse.body).toEqual({ deleted: true });
 
     const afterDeleteResponse = await request(app).get("/todos").expect(200);
     expect(

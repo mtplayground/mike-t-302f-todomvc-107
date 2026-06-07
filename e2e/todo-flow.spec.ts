@@ -33,7 +33,7 @@ test("adds, completes, persists after reload, and deletes a todo", async ({ page
     const deleteResponsePromise = waitForTodoResponse(page, "DELETE");
     await todoItem.getByRole("button", { name: `Delete: ${title}` }).click();
     const deleteResponse = await deleteResponsePromise;
-    expect(deleteResponse.status()).toBe(204);
+    expect(deleteResponse.ok()).toBe(true);
     await expect(page.locator("li").filter({ hasText: title })).toHaveCount(0);
   } finally {
     await deleteE2eTodos(request);

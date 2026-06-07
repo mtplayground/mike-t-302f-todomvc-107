@@ -53,6 +53,6 @@ todosRouter.delete(
     const params = request.params as TodoParams;
     await deleteTodo(params.id);
 
-    response.status(204).send();
+    response.status(200).json({ deleted: true });
   }
 );
