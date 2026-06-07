@@ -1,54 +1,62 @@
-Architecture plan for todomvc-030 image upload batch
+Architecture plan for todomvc-030 todo implementation
 
-Current baseline
-- The app is a TypeScript monorepo with `server/` for an Express API and `client/` for a Vite React SPA.
-- Persistent task data is stored in PostgreSQL through Prisma.
-- The server exposes task CRUD endpoints and serves the built React app from `client/dist`.
-- The client uses TanStack React Query, a typed API client in `client/src/api/`, and task UI components in `client/src/components/tasks/`.
-- Existing tests cover backend service/routes, frontend components, and one Playwright happy path.
+Current project shape
+- `todomvc-030` is a TypeScript monorepo with a Vite React client in `client/`
+  and an Express API in `server/`.
+- PostgreSQL persistence is managed through Prisma under `server/prisma/`.
+- Shared API contracts should remain simple JSON DTOs defined in the server
+  service layer and mirrored by typed client API helpers.
 
 Module structure and file organization
-- Server configuration:
-  - Extend `server/src/config/env.ts` with required S3 settings and `MAX_IMAGE_BYTES`.
-  - Keep `.env.example` as the source of documented runtime configuration.
-- Database:
-  - Extend `server/prisma/schema.prisma` `Task` model with nullable image metadata columns:
-    `imageKey`, `imageUrl`, `imageContentType`, and `imageSize`.
+- Database and persistence:
+  - Define the todo table/model in `server/prisma/schema.prisma`.
   - Add a Prisma migration under `server/prisma/migrations/`.
-- Storage:
-  - Add `server/src/services/storage.ts` for S3 object operations: upload, delete, signed/public read URL generation, object key generation, MIME validation, and size validation.
-  - Keep user filenames out of object keys; use random keys namespaced for task images.
-  - Prefer a small storage-facing type such as `UploadedImageMetadata` to keep task service code explicit.
-- Backend task flow:
-  - Keep task persistence in `server/src/services/tasks.ts`.
-  - Add route-level multipart handling in `server/src/routes/tasks.ts` with `multer`, preserving existing JSON behavior for clients that do not upload images.
-  - Extend `server/src/validation/tasks.ts` so JSON, multipart fields, and remove-image intent share the same business constraints.
-  - Extend `TaskDto` to expose `imageUrl`, `imageContentType`, and `imageSize`; do not expose internal `imageKey`.
+  - Keep database access behind a service module such as
+    `server/src/services/todos.ts`.
+  - Use a DTO shape with `id`, `title`, `completed`, `createdAt`, and
+    `updatedAt`; keep timestamps serialized as ISO strings at the API boundary.
+- API:
+  - Add the todo router in `server/src/routes/todos.ts` and mount it from
+    `server/src/app.ts`.
+  - Put Zod schemas for create, update/toggle, delete params, and list query
+    validation in `server/src/validation/todos.ts`.
+  - Reuse existing middleware conventions for request validation and centralized
+    error handling.
 - Client:
-  - Extend `client/src/api/tasks.ts` task types with image metadata and use `FormData` only when a selected image or remove-image intent is present.
-  - Extend `client/src/components/tasks/TaskForm.tsx` with file input, selected-image preview, and edit-mode remove-image checkbox.
-  - Extend `client/src/components/tasks/TaskList.tsx` to render a thumbnail/preview when `task.imageUrl` exists.
-- Tests:
-  - Extend backend tests for valid upload metadata, invalid MIME, max-size validation, image replacement/removal, and object cleanup calls.
-  - Extend frontend component tests for file selection preview, remove-image UI, FormData submission, and image rendering.
-  - Extend Playwright E2E to cover valid image upload, list rendering, edit replace/remove, invalid MIME, oversized image, and delete cleanup behavior or documented orphan-safe policy.
+  - Add typed API helpers in `client/src/api/todos.ts`.
+  - Build the single todo view in `client/src/App.tsx` or small focused
+    components under `client/src/components/todos/` if the UI needs separation.
+  - Keep the first UI focused on the issue scope: add input, list rendering,
+    completion toggles, and delete controls.
+- E2E:
+  - Implement the full todo flow in `e2e/todo-flow.spec.ts`.
+  - Use the public UI for add, toggle, reload persistence verification, and
+    delete; use API cleanup only for test isolation if needed.
 
 Dependencies between issues
-- Issue #28 is first: it adds object storage configuration and startup validation.
-- Issue #29 can follow #28 or run in parallel conceptually, but later route work needs the image metadata columns and migration.
-- Issue #30 depends on #28 and creates the reusable S3 storage/upload service.
-- Issue #31 depends on #29 and #30; it wires multipart routes, task persistence, DTOs, image URL generation, and cleanup on remove/delete.
-- Issue #32 depends on #31 because the client API contract must exist before the form sends images.
-- Issue #33 depends on #31 because task DTOs must expose image URLs before the list can render thumbnails.
-- Issue #34 depends on #32 and #33 and should verify the complete image workflow across backend, frontend, S3, and database metadata.
+- Issue #1 is the foundation: it creates the todo model, migration, and
+  persistence functions.
+- Issue #2 depends on #1: routes should call the persistence/service layer and
+  expose validated CRUD endpoints.
+- Issue #3 depends on #2: the React UI should be wired to the completed API
+  contract instead of hard-coded local state.
+- Issue #4 depends on #3: Playwright should exercise the deployed user flow
+  across UI, API, and PostgreSQL-backed persistence.
 
 Key design decisions
-- Use S3-compatible storage only for binary image objects; keep durable relational metadata in PostgreSQL.
-- Treat `imageKey` as internal server state used for S3 deletes and signed URL generation.
-- Return `imageUrl` as the read URL clients can render. For public buckets this can be `S3_PUBLIC_BASE_URL + key`; for private buckets use a signed read URL.
-- Keep JSON task create/update support intact. Use multipart parsing only when the request content type is `multipart/form-data`.
-- Validate uploads at the API boundary and in the storage service: allowed image MIME types are PNG, JPEG, WebP, and GIF; max size comes from `MAX_IMAGE_BYTES`.
-- On image replacement or remove-image, delete the previous object after a successful task update when possible. If delete fails after DB success, log and keep behavior cleanup-safe rather than failing user-visible task updates late.
-- On task delete, delete the associated object if present.
-- Avoid bundling S3 credentials into the client. All S3 access is server-side.
-- Preserve existing task UX and optimistic completion/delete behavior while adding image-specific form and list states.
+- Use PostgreSQL as the only durable todo store; avoid local file or in-memory
+  persistence outside tests.
+- Keep the todo data model intentionally narrow for the requested TodoMVC scope:
+  `id`, `title`, `completed`, `createdAt`, and `updatedAt`.
+- Generate todo IDs in the database with UUIDs.
+- Sort todos predictably, with incomplete items before completed items and newer
+  items first within each group.
+- Treat toggle as a partial update endpoint that accepts `completed`; creation
+  only requires a non-empty title.
+- Return `404` for missing todos and validation errors through the existing app
+  error/validation middleware.
+- Keep client state synchronized through fetch/mutate calls to the API; any
+  optimistic updates should be small and invalidated after mutation success or
+  failure.
+- Keep tests scoped by layer: service tests for persistence, route tests for
+  validation/API behavior, and one E2E spec for the complete user workflow.
