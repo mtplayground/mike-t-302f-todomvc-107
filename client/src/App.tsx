@@ -22,10 +22,10 @@ export function App() {
   });
   const createMutation = useMutation({
     mutationFn: createTodo,
-    onSuccess: async () => {
+    onSuccess: (todo) => {
       setTitle("");
       setFormError(null);
-      await queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.setQueryData<Todo[]>(["todos"], (currentTodos) => [todo, ...(currentTodos ?? [])]);
     },
   });
   const toggleMutation = useMutation({
@@ -48,8 +48,10 @@ export function App() {
     onError: (_error, _variables, context) => {
       queryClient.setQueryData(["todos"], context?.previousTodos);
     },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["todos"] });
+    onSuccess: (todo) => {
+      queryClient.setQueryData<Todo[]>(["todos"], (currentTodos) =>
+        currentTodos?.map((currentTodo) => (currentTodo.id === todo.id ? todo : currentTodo))
+      );
     },
   });
   const deleteMutation = useMutation({
