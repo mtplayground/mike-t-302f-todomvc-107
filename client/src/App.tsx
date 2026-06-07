@@ -58,8 +58,6 @@ export function App() {
       queryClient.setQueryData<Todo[]>(["todos"], (currentTodos) =>
         currentTodos?.filter((currentTodo) => currentTodo.id !== todo.id)
       );
-
-      await queryClient.invalidateQueries({ queryKey: ["todos"] });
     },
   });
 
