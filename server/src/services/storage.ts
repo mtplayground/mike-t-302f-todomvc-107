@@ -61,7 +61,11 @@ const defaultS3Client = new S3Client({
   endpoint: env.S3_ENDPOINT,
   forcePathStyle: true,
   region: env.S3_REGION,
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
+const objectStoragePrefix = normalizeObjectStoragePrefix(
+  env.OBJECT_STORAGE_PREFIX ?? env.S3_PREFIX ?? env.TIGRIS_PREFIX ?? ""
+);
 
 export function validateImageUpload(input: UploadImageInput): AllowedImageContentType {
   if (!isAllowedImageContentType(input.contentType)) {
@@ -115,7 +119,7 @@ export async function uploadTaskImage(
     Bucket: env.S3_BUCKET,
     ContentLength: input.size,
     ContentType: contentType,
-    Key: imageKey,
+    Key: toObjectStorageKey(imageKey),
   };
 
   try {
@@ -132,7 +136,7 @@ export async function uploadTaskImage(
     imageContentType: contentType,
     imageKey,
     imageSize: input.size,
-    imageUrl: buildPublicImageUrl(imageKey),
+    imageUrl: buildPublicImageUrl(toObjectStorageKey(imageKey)),
   };
 }
 
@@ -157,7 +161,7 @@ export async function deleteTaskImage(
 
   const commandInput: DeleteObjectCommandInput = {
     Bucket: env.S3_BUCKET,
-    Key: trimmedKey,
+    Key: toObjectStorageKey(trimmedKey),
   };
 
   try {
@@ -199,7 +203,7 @@ export async function createSignedTaskImageUrl(
     options.client ?? defaultS3Client,
     new GetObjectCommand({
       Bucket: env.S3_BUCKET,
-      Key: trimmedKey,
+      Key: toObjectStorageKey(trimmedKey),
     }),
     {
       expiresIn: options.expiresInSeconds ?? 900,
@@ -208,6 +212,10 @@ export async function createSignedTaskImageUrl(
 }
 
 export function buildPublicImageUrl(imageKey: string): string {
+  if (!env.S3_PUBLIC_BASE_URL) {
+    return imageKey;
+  }
+
   const baseUrl = env.S3_PUBLIC_BASE_URL.endsWith("/")
     ? env.S3_PUBLIC_BASE_URL
     : `${env.S3_PUBLIC_BASE_URL}/`;
@@ -218,6 +226,26 @@ export function buildPublicImageUrl(imageKey: string): string {
 
 export function generateTaskImageKey(contentType: AllowedImageContentType): string {
   return `tasks/images/${randomUUID()}.${imageExtensions[contentType]}`;
+}
+
+function normalizeObjectStoragePrefix(prefix: string): string {
+  const normalizedPrefix = prefix.trim().replace(/^\/+/, "");
+
+  if (!normalizedPrefix) {
+    return "";
+  }
+
+  return normalizedPrefix.endsWith("/") ? normalizedPrefix : `${normalizedPrefix}/`;
+}
+
+function toObjectStorageKey(key: string): string {
+  const normalizedKey = key.trim().replace(/^\/+/, "");
+
+  if (!objectStoragePrefix || normalizedKey.startsWith(objectStoragePrefix)) {
+    return normalizedKey;
+  }
+
+  return `${objectStoragePrefix}${normalizedKey}`;
 }
 
 function isAllowedImageContentType(contentType: string): contentType is AllowedImageContentType {

@@ -21,15 +21,18 @@ const envSchema = z.object({
       "DATABASE_URL must use a PostgreSQL connection string"
     ),
   HOST: z.string().trim().min(1).default("0.0.0.0"),
-  MAX_IMAGE_BYTES: z.coerce.number().int().positive(),
+  MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(5_242_880),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  OBJECT_STORAGE_PREFIX: z.string().trim().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   S3_ACCESS_KEY_ID: z.string().trim().min(1),
   S3_BUCKET: z.string().trim().min(1),
   S3_ENDPOINT: z.string().trim().url(),
-  S3_PUBLIC_BASE_URL: z.string().trim().url(),
+  S3_PREFIX: z.string().trim().optional(),
+  S3_PUBLIC_BASE_URL: z.string().trim().url().optional(),
   S3_REGION: z.string().trim().min(1),
   S3_SECRET_ACCESS_KEY: z.string().trim().min(1),
+  TIGRIS_PREFIX: z.string().trim().optional(),
 });
 
 const envSource =

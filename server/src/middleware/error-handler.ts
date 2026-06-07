@@ -29,7 +29,7 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, nex
   const payload = toErrorPayload(error);
 
   if (payload.statusCode >= 500) {
-    console.error(error);
+    logServerError(error);
   }
 
   response.status(payload.statusCode).json(payload.body);
@@ -78,4 +78,18 @@ function toErrorPayload(error: unknown): {
       },
     },
   };
+}
+
+function logServerError(error: unknown): void {
+  const errorRecord =
+    error && typeof error === "object" ? (error as Record<string, unknown>) : undefined;
+
+  console.error("[api error]", {
+    code: errorRecord?.code,
+    httpStatus: (errorRecord?.$metadata as { readonly httpStatusCode?: unknown } | undefined)
+      ?.httpStatusCode,
+    message: error instanceof Error ? error.message : String(error),
+    name: error instanceof Error ? error.name : typeof error,
+    stack: error instanceof Error ? error.stack : undefined,
+  });
 }

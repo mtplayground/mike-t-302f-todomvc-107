@@ -54,20 +54,11 @@ export function App() {
   });
   const deleteMutation = useMutation({
     mutationFn: (todo: Todo) => deleteTodo(todo.id),
-    onMutate: async (todo) => {
-      await queryClient.cancelQueries({ queryKey: ["todos"] });
-      const previousTodos = queryClient.getQueryData<Todo[]>(["todos"]);
-
+    onSuccess: async (_data, todo) => {
       queryClient.setQueryData<Todo[]>(["todos"], (currentTodos) =>
         currentTodos?.filter((currentTodo) => currentTodo.id !== todo.id)
       );
 
-      return { previousTodos };
-    },
-    onError: (_error, _todo, context) => {
-      queryClient.setQueryData(["todos"], context?.previousTodos);
-    },
-    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ["todos"] });
     },
   });

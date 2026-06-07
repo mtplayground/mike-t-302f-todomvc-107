@@ -63,6 +63,7 @@ export function TaskForm({
   useEffect(() => {
     setClientError(null);
     setRemoveImage(false);
+    setSelectedImagePreviewUrl(null);
     setSelectedImage(null);
     clearFileInput(fileInputRef.current);
 
@@ -104,6 +105,7 @@ export function TaskForm({
 
     if (!task) {
       setValues(emptyValues);
+      setSelectedImagePreviewUrl(null);
       setSelectedImage(null);
       clearFileInput(fileInputRef.current);
     }
@@ -123,6 +125,7 @@ export function TaskForm({
     setRemoveImage(checked);
 
     if (checked) {
+      setSelectedImagePreviewUrl(null);
       setSelectedImage(null);
       clearFileInput(fileInputRef.current);
     }
